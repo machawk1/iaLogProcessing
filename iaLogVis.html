@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Internet Archive Access Log Temporal Distribution</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+  <link rel="stylesheet" href="cal-heatmap/cal-heatmap.css" />
+  <script type="text/javascript" src="cal-heatmap/cal-heatmap.min.js"></script>
+<script>
+var httpRequest;
+if (window.XMLHttpRequest) {
+    httpRequest = new XMLHttpRequest();
+} else if (window.ActiveXObject) {
+    httpRequest = new ActiveXObject("Microsoft.XMLHTTP");
+}
+
+httpRequest.onreadystatechange = processFileList;
+
+httpRequest.open('GET', 'http://www.cs.odu.edu/~mkelly/semester/2015_fall/iaLogs.txt', true);
+httpRequest.send(null);
+
+function processFileList(data) {
+  if (httpRequest.readyState !== 4 || httpRequest.status !== 200) {
+    return;
+  }
+
+  var lines = httpRequest.responseText.split('\n');
+
+  var generatedData = "{\n";
+  var sizeSum = 0;
+  var sizeSumI = 0;
+  var max = 0;
+  for (var line = 0; line < lines.length; line++) {
+    var size = /grad\s+(.*?)\s+Sep/.exec(lines[line]);
+    var yymmdd = /[\d]{8}/.exec(lines[line]);
+
+    if (size) {
+      // Convert YYmmdd to Unix time
+      yymmdd = yymmdd[0]
+      var formattedDate = yymmdd.substr(0,4) + '-' + yymmdd.substr(4,2) + '-' + yymmdd.substr(6,2);
+      var unixDate = (new Date(formattedDate)).getTime() / 1000;
+     generatedData += '  "' + unixDate + '": ' + size[1] + ',\n';
+
+     sizeSum = (sizeSum + parseInt(size[1])) / 2;
+
+     sizeSumI++;
+     if(size[1] > max) {
+       max = size[1];
+     }
+   }
+  }
+
+  generatedData = generatedData.slice(0,-2) + '\n}'; // Remove last comma and LF
+
+  var cal = new CalHeatMap();
+  cal.init({
+    data: JSON.parse(generatedData),
+    tooltip: true,
+    itemName: ['kb gzipped log file','kb gzipped log file'],
+    dataType: 'json',
+    maxDate: new Date(2012, 3, 31),
+    domain: 'month',
+    range: 15,
+    domainLabelFormat: '%b %Y',
+    subDomain: 'day',
+    weekStartOnMonday: false,
+    legend: [(sizeSum * 0.25), (sizeSum * 0.5), (sizeSum * 0.75), max],
+    start: (new Date('Jan 1, 2011')),
+    }
+  );
+}
+</script>
+</head>
+<body>
+  <h1>Internet Archive Access Log Temporal Distribution</h1>
+  <div id="cal-heatmap"></div>
+  <p><a href="http://www.cs.odu.edu/~mkelly/semester/2015_fall/iaLogs.txt">Data source</a> derived from running <code>ls -lhk /data/Yasmin/IA_Logs/waybackm_logs/ > /home/mkelly/public_html/semester/2015_fall/iaLogs.txt</code> from ws-dl-02.cs.odu.edu.</p>
+</body>
+</html>
